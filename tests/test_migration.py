@@ -1,9 +1,8 @@
 """Tests for sqlguard.migration module."""
 
-import pytest
-from sqlguard.schema import Schema, Table, Column, ForeignKey, Index
-from sqlguard.diff import SchemaDiffer, ChangeType
-from sqlguard.migration import MigrationGenerator, Migration, MigrationStep
+from sqlguard.diff import ChangeType, SchemaDiffer
+from sqlguard.migration import Migration, MigrationGenerator, MigrationStep
+from sqlguard.schema import Column, Schema, Table
 
 
 class TestMigrationStep:
@@ -73,19 +72,23 @@ class TestMigration:
 
     def test_up_sql(self):
         migration = Migration(name="test")
-        migration.add_step(MigrationStep(
-            sql="ALTER TABLE users ADD COLUMN bio TEXT;",
-            change_type=ChangeType.COLUMN_ADDED,
-            table="users",
-            column="bio",
-            comment="Add bio column",
-        ))
-        migration.add_step(MigrationStep(
-            sql="ALTER TABLE posts ADD COLUMN published BOOLEAN DEFAULT false;",
-            change_type=ChangeType.COLUMN_ADDED,
-            table="posts",
-            column="published",
-        ))
+        migration.add_step(
+            MigrationStep(
+                sql="ALTER TABLE users ADD COLUMN bio TEXT;",
+                change_type=ChangeType.COLUMN_ADDED,
+                table="users",
+                column="bio",
+                comment="Add bio column",
+            )
+        )
+        migration.add_step(
+            MigrationStep(
+                sql="ALTER TABLE posts ADD COLUMN published BOOLEAN DEFAULT false;",
+                change_type=ChangeType.COLUMN_ADDED,
+                table="posts",
+                column="published",
+            )
+        )
         sql = migration.up_sql
         assert "Migration: test" in sql
         assert "ALTER TABLE users" in sql
@@ -114,28 +117,34 @@ class TestMigration:
 
     def test_has_breaking_steps(self):
         migration = Migration(name="test")
-        migration.add_step(MigrationStep(
-            sql="ALTER TABLE users ADD COLUMN bio TEXT;",
-            change_type=ChangeType.COLUMN_ADDED,
-            table="users",
-        ))
+        migration.add_step(
+            MigrationStep(
+                sql="ALTER TABLE users ADD COLUMN bio TEXT;",
+                change_type=ChangeType.COLUMN_ADDED,
+                table="users",
+            )
+        )
         assert not migration.has_breaking_steps
 
-        migration.add_step(MigrationStep(
-            sql="ALTER TABLE users DROP COLUMN age;",
-            change_type=ChangeType.COLUMN_REMOVED,
-            table="users",
-        ))
+        migration.add_step(
+            MigrationStep(
+                sql="ALTER TABLE users DROP COLUMN age;",
+                change_type=ChangeType.COLUMN_REMOVED,
+                table="users",
+            )
+        )
         assert migration.has_breaking_steps
 
     def test_summary(self):
         migration = Migration(name="test")
-        migration.add_step(MigrationStep(
-            sql="ALTER TABLE users ADD COLUMN bio TEXT;",
-            change_type=ChangeType.COLUMN_ADDED,
-            table="users",
-            column="bio",
-        ))
+        migration.add_step(
+            MigrationStep(
+                sql="ALTER TABLE users ADD COLUMN bio TEXT;",
+                change_type=ChangeType.COLUMN_ADDED,
+                table="users",
+                column="bio",
+            )
+        )
         summary = migration.summary()
         assert "Migration: test" in summary
         assert "Steps: 1" in summary
@@ -146,14 +155,20 @@ class TestMigrationGenerator:
 
     def test_add_table(self):
         old = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new = Schema("v2", [
-            Table("users", [Column("id", "integer", primary_key=True)]),
-            Table("posts", [
-                Column("id", "integer", primary_key=True),
-                Column("title", "varchar", nullable=False),
-                Column("user_id", "integer", references="users.id"),
-            ]),
-        ])
+        new = Schema(
+            "v2",
+            [
+                Table("users", [Column("id", "integer", primary_key=True)]),
+                Table(
+                    "posts",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("title", "varchar", nullable=False),
+                        Column("user_id", "integer", references="users.id"),
+                    ],
+                ),
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -164,10 +179,13 @@ class TestMigrationGenerator:
         assert any("CREATE TABLE posts" in s.sql for s in migration.steps)
 
     def test_drop_table(self):
-        old = Schema("v1", [
-            Table("users", [Column("id", "integer", primary_key=True)]),
-            Table("posts", [Column("id", "integer", primary_key=True)]),
-        ])
+        old = Schema(
+            "v1",
+            [
+                Table("users", [Column("id", "integer", primary_key=True)]),
+                Table("posts", [Column("id", "integer", primary_key=True)]),
+            ],
+        )
         new = Schema("v2", [Table("users", [Column("id", "integer", primary_key=True)])])
 
         differ = SchemaDiffer()
@@ -178,13 +196,29 @@ class TestMigrationGenerator:
         assert any("DROP TABLE posts" in s.sql for s in migration.steps)
 
     def test_add_column(self):
-        old = Schema("v1", [Table("users", [
-            Column("id", "integer", primary_key=True),
-        ])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("email", "varchar", nullable=False, unique=True),
-        ])])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                    ],
+                )
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("email", "varchar", nullable=False, unique=True),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -194,13 +228,29 @@ class TestMigrationGenerator:
         assert any("ADD COLUMN email" in s.sql for s in migration.steps)
 
     def test_drop_column(self):
-        old = Schema("v1", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("age", "integer"),
-        ])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-        ])])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("age", "integer"),
+                    ],
+                )
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -210,48 +260,92 @@ class TestMigrationGenerator:
         assert any("DROP COLUMN age" in s.sql for s in migration.steps)
 
     def test_alter_column_type(self):
-        old = Schema("v1", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("age", "smallint"),
-        ])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("age", "integer"),
-        ])])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("age", "smallint"),
+                    ],
+                )
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("age", "integer"),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
         generator = MigrationGenerator(dialect="postgresql")
         migration = generator.generate(diff, old_schema=old, new_schema=new)
 
-        type_changes = [s for s in migration.steps if s.change_type == ChangeType.COLUMN_TYPE_CHANGED]
+        type_changes = [
+            s for s in migration.steps if s.change_type == ChangeType.COLUMN_TYPE_CHANGED
+        ]
         assert len(type_changes) >= 1
 
     def test_alter_nullability(self):
-        old = Schema("v1", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar", nullable=True),
-        ])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar", nullable=False),
-        ])])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar", nullable=True),
+                    ],
+                )
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar", nullable=False),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
         generator = MigrationGenerator(dialect="postgresql")
         migration = generator.generate(diff, old_schema=old, new_schema=new)
 
-        null_changes = [s for s in migration.steps if s.change_type == ChangeType.COLUMN_NULLABILITY_CHANGED]
+        null_changes = [
+            s for s in migration.steps if s.change_type == ChangeType.COLUMN_NULLABILITY_CHANGED
+        ]
         assert len(null_changes) >= 1
         assert any("SET NOT NULL" in s.sql for s in null_changes)
 
     def test_mysql_dialect(self):
         old = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar"),
-        ])])
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar"),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -262,10 +356,18 @@ class TestMigrationGenerator:
 
     def test_sqlite_dialect(self):
         old = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar"),
-        ])])
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar"),
+                    ],
+                )
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -278,20 +380,32 @@ class TestMigrationGenerator:
 
     def test_migration_ordering(self):
         """Verify that migration steps are ordered correctly."""
-        old = Schema("v1", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("email", "varchar"),
-                Column("age", "integer"),
-            ]),
-        ])
-        new = Schema("v2", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("email", "varchar"),
-                Column("bio", "text"),  # Added
-            ]),
-        ])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("email", "varchar"),
+                        Column("age", "integer"),
+                    ],
+                ),
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("email", "varchar"),
+                        Column("bio", "text"),  # Added
+                    ],
+                ),
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)
@@ -321,25 +435,40 @@ class TestMigrationGenerator:
 
     def test_complex_migration(self):
         """Test a complex migration with multiple change types."""
-        old = Schema("v1", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("name", "varchar", nullable=False),
-                Column("age", "integer"),
-            ]),
-            Table("old_table", [Column("id", "integer", primary_key=True)]),
-        ])
-        new = Schema("v2", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("name", "varchar", nullable=False),
-                Column("bio", "text"),  # Added, age removed
-            ]),
-            Table("new_table", [  # New table, old_table removed
-                Column("id", "integer", primary_key=True),
-                Column("value", "varchar"),
-            ]),
-        ])
+        old = Schema(
+            "v1",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar", nullable=False),
+                        Column("age", "integer"),
+                    ],
+                ),
+                Table("old_table", [Column("id", "integer", primary_key=True)]),
+            ],
+        )
+        new = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar", nullable=False),
+                        Column("bio", "text"),  # Added, age removed
+                    ],
+                ),
+                Table(
+                    "new_table",
+                    [  # New table, old_table removed
+                        Column("id", "integer", primary_key=True),
+                        Column("value", "varchar"),
+                    ],
+                ),
+            ],
+        )
 
         differ = SchemaDiffer()
         diff = differ.diff(old, new)

@@ -1,7 +1,6 @@
 """Tests for sqlguard.linter module."""
 
-import pytest
-from sqlguard.linter import SQLLinter, LintIssue, LintRule, Severity
+from sqlguard.linter import LintIssue, LintRule, Severity, SQLLinter
 
 
 class TestSQLLinter:
@@ -214,7 +213,8 @@ class TestSQLLinter:
         sql = "SELECT id, name FROM users WHERE active = true ORDER BY name;"
         issues = self.linter.lint(sql)
         assert len(issues) == 0 or all(
-            i.rule not in (
+            i.rule
+            not in (
                 LintRule.SELECT_STAR,
                 LintRule.MISSING_WHERE_DELETE,
                 LintRule.MISSING_WHERE_UPDATE,

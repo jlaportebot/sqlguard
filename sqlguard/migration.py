@@ -8,11 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
-from sqlguard.diff import SchemaDiff, ChangeType
-from sqlguard.dialects import Dialect, PostgresqlDialect, get_dialect
-from sqlguard.schema import Column, Schema
+from sqlguard.dialects import Dialect, get_dialect
+from sqlguard.diff import ChangeType, SchemaDiff
+from sqlguard.schema import Schema
 
 
 @dataclass
@@ -22,10 +21,10 @@ class MigrationStep:
     sql: str
     change_type: ChangeType
     table: str
-    column: Optional[str] = None
+    column: str | None = None
     reversible: bool = True
-    rollback_sql: Optional[str] = None
-    comment: Optional[str] = None
+    rollback_sql: str | None = None
+    comment: str | None = None
 
     def to_sql(self) -> str:
         """Return the SQL for this step, with optional comment."""
@@ -74,9 +73,7 @@ class Migration:
         if not self.steps:
             return "-- No migration steps\n"
         header = f"-- Rollback: {self.name}\n-- Dialect: {self.dialect}\n"
-        body = "\n\n".join(
-            step.to_rollback_sql() for step in reversed(self.steps)
-        )
+        body = "\n\n".join(step.to_rollback_sql() for step in reversed(self.steps))
         return header + body + "\n"
 
     @property
@@ -116,8 +113,8 @@ class MigrationGenerator:
     def generate(
         self,
         diff: SchemaDiff,
-        old_schema: Optional[Schema] = None,
-        new_schema: Optional[Schema] = None,
+        old_schema: Schema | None = None,
+        new_schema: Schema | None = None,
     ) -> Migration:
         """Generate a Migration from a SchemaDiff.
 
@@ -216,7 +213,9 @@ class MigrationGenerator:
             if change.old_value:
                 step = MigrationStep(
                     sql=self.dialect.render_drop_foreign_key(
-                        change.old_value.split("→")[0].strip() if "→" in change.old_value else change.old_value,
+                        change.old_value.split("→")[0].strip()
+                        if "→" in change.old_value
+                        else change.old_value,
                         change.table,
                     ),
                     change_type=change.change_type,
@@ -251,9 +250,7 @@ class MigrationGenerator:
         # 4. Drop check constraints
         for change in drop_checks:
             step = MigrationStep(
-                sql=self.dialect.render_drop_check(
-                    change.old_value or "unknown", change.table
-                ),
+                sql=self.dialect.render_drop_check(change.old_value or "unknown", change.table),
                 change_type=change.change_type,
                 table=change.table,
                 comment=f"Drop check constraint: {change.description}",
@@ -432,7 +429,7 @@ class MigrationGenerator:
         return migration
 
     def _generate_alter_column_steps(
-        self, change, new_schema: Optional[Schema], migration: Migration
+        self, change, new_schema: Schema | None, migration: Migration
     ) -> None:
         """Generate ALTER COLUMN migration steps."""
         ct = change.change_type
@@ -505,7 +502,9 @@ class MigrationGenerator:
             if change.new_value == "True":
                 sql = f"ALTER TABLE {change.table} ADD CONSTRAINT uq_{change.table}_{change.column} UNIQUE ({change.column});"
             else:
-                sql = f"ALTER TABLE {change.table} DROP CONSTRAINT uq_{change.table}_{change.column};"
+                sql = (
+                    f"ALTER TABLE {change.table} DROP CONSTRAINT uq_{change.table}_{change.column};"
+                )
             step = MigrationStep(
                 sql=sql,
                 change_type=ct,
@@ -520,7 +519,9 @@ class MigrationGenerator:
                 ref = change.new_value
                 sql = f"ALTER TABLE {change.table} ADD CONSTRAINT fk_{change.table}_{change.column} FOREIGN KEY ({change.column}) REFERENCES {ref};"
             else:
-                sql = f"ALTER TABLE {change.table} DROP CONSTRAINT fk_{change.table}_{change.column};"
+                sql = (
+                    f"ALTER TABLE {change.table} DROP CONSTRAINT fk_{change.table}_{change.column};"
+                )
             step = MigrationStep(
                 sql=sql,
                 change_type=ct,

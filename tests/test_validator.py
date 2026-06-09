@@ -1,7 +1,6 @@
 """Tests for sqlguard.validator module."""
 
-import pytest
-from sqlguard.schema import Schema, Table, Column
+from sqlguard.schema import Column, Schema, Table
 from sqlguard.validator import QueryValidator, ValidationError
 
 
@@ -9,27 +8,39 @@ class TestQueryValidator:
     """Tests for query validation against a schema."""
 
     def _make_schema(self) -> Schema:
-        return Schema("my_app", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("email", "varchar", nullable=False, unique=True),
-                Column("name", "varchar", nullable=False),
-                Column("active", "boolean", default="true"),
-            ]),
-            Table("posts", [
-                Column("id", "integer", primary_key=True),
-                Column("user_id", "integer", nullable=False, references="users.id"),
-                Column("title", "varchar", nullable=False),
-                Column("body", "text"),
-                Column("published", "boolean", default="false"),
-            ]),
-            Table("comments", [
-                Column("id", "integer", primary_key=True),
-                Column("post_id", "integer", nullable=False, references="posts.id"),
-                Column("author_id", "integer", nullable=False, references="users.id"),
-                Column("content", "text", nullable=False),
-            ]),
-        ])
+        return Schema(
+            "my_app",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("email", "varchar", nullable=False, unique=True),
+                        Column("name", "varchar", nullable=False),
+                        Column("active", "boolean", default="true"),
+                    ],
+                ),
+                Table(
+                    "posts",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("user_id", "integer", nullable=False, references="users.id"),
+                        Column("title", "varchar", nullable=False),
+                        Column("body", "text"),
+                        Column("published", "boolean", default="false"),
+                    ],
+                ),
+                Table(
+                    "comments",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("post_id", "integer", nullable=False, references="posts.id"),
+                        Column("author_id", "integer", nullable=False, references="users.id"),
+                        Column("content", "text", nullable=False),
+                    ],
+                ),
+            ],
+        )
 
     def setup_method(self):
         self.schema = self._make_schema()
@@ -85,7 +96,9 @@ class TestQueryValidator:
         assert len(errors) == 0
 
     def test_insert_valid(self):
-        errors = self.validator.validate("INSERT INTO users (id, email, name) VALUES (1, 'a@b.com', 'Test');")
+        errors = self.validator.validate(
+            "INSERT INTO users (id, email, name) VALUES (1, 'a@b.com', 'Test');"
+        )
         assert len(errors) == 0
 
     def test_delete_valid(self):
@@ -103,7 +116,9 @@ class TestQueryValidator:
         assert "foo" in s
 
     def test_validation_error_to_dict(self):
-        err = ValidationError(message="Column 'foo' not found", table="users", column="foo", line=5, severity="error")
+        err = ValidationError(
+            message="Column 'foo' not found", table="users", column="foo", line=5, severity="error"
+        )
         d = err.to_dict()
         assert d["message"] == "Column 'foo' not found"
         assert d["table"] == "users"

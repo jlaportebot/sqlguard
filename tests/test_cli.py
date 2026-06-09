@@ -1,12 +1,9 @@
 """Tests for sqlguard.cli module."""
 
-import json
 import os
-import tempfile
 
-import pytest
 from sqlguard.cli import main
-from sqlguard.schema import Schema, Table, Column
+from sqlguard.schema import Column, Schema, Table
 
 
 class TestCLI:
@@ -70,7 +67,7 @@ class TestCLI:
         sql = "SELECT * FROM users;\n"
         sql_path = self._write_sql_file(str(tmp_path), sql)
         # Capture stdout by running main
-        result = main(["lint", sql_path, "--json"])
+        _ = main(["lint", sql_path, "--json"])
         # The result should be 1 (error found), and JSON was output
 
     def test_diff_no_changes(self, tmp_path):
@@ -81,10 +78,20 @@ class TestCLI:
 
     def test_diff_with_changes(self, tmp_path):
         old_schema = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new_schema = Schema("v2", [Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar", nullable=False),  # NOT NULL without default — breaking
-        ])])
+        new_schema = Schema(
+            "v2",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column(
+                            "name", "varchar", nullable=False
+                        ),  # NOT NULL without default — breaking
+                    ],
+                )
+            ],
+        )
         old_path = self._write_schema_file(str(tmp_path), old_schema)
         new_path = self._write_schema_file(str(tmp_path), new_schema)
         result = main(["diff", old_path, new_path])
@@ -92,7 +99,14 @@ class TestCLI:
 
     def test_diff_json_output(self, tmp_path):
         old_schema = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new_schema = Schema("v2", [Table("users", [Column("id", "integer", primary_key=True), Column("name", "varchar")])])
+        new_schema = Schema(
+            "v2",
+            [
+                Table(
+                    "users", [Column("id", "integer", primary_key=True), Column("name", "varchar")]
+                )
+            ],
+        )
         old_path = self._write_schema_file(str(tmp_path), old_schema)
         new_path = self._write_schema_file(str(tmp_path), new_schema)
         result = main(["diff", old_path, new_path, "--json"])
@@ -100,7 +114,14 @@ class TestCLI:
 
     def test_migrate(self, tmp_path):
         old_schema = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new_schema = Schema("v2", [Table("users", [Column("id", "integer", primary_key=True), Column("name", "varchar")])])
+        new_schema = Schema(
+            "v2",
+            [
+                Table(
+                    "users", [Column("id", "integer", primary_key=True), Column("name", "varchar")]
+                )
+            ],
+        )
         old_path = self._write_schema_file(str(tmp_path), old_schema)
         new_path = self._write_schema_file(str(tmp_path), new_schema)
         result = main(["migrate", old_path, new_path, "--dialect", "postgresql"])
@@ -108,30 +129,58 @@ class TestCLI:
 
     def test_migrate_down(self, tmp_path):
         old_schema = Schema("v1", [Table("users", [Column("id", "integer", primary_key=True)])])
-        new_schema = Schema("v2", [Table("users", [Column("id", "integer", primary_key=True), Column("name", "varchar")])])
+        new_schema = Schema(
+            "v2",
+            [
+                Table(
+                    "users", [Column("id", "integer", primary_key=True), Column("name", "varchar")]
+                )
+            ],
+        )
         old_path = self._write_schema_file(str(tmp_path), old_schema)
         new_path = self._write_schema_file(str(tmp_path), new_schema)
         result = main(["migrate", old_path, new_path, "--direction", "down"])
         assert result == 0
 
     def test_validate_clean(self, tmp_path):
-        schema = Schema("my_app", [Table("users", [Column("id", "integer", primary_key=True), Column("name", "varchar")])])
+        schema = Schema(
+            "my_app",
+            [
+                Table(
+                    "users", [Column("id", "integer", primary_key=True), Column("name", "varchar")]
+                )
+            ],
+        )
         schema_path = self._write_schema_file(str(tmp_path), schema)
         sql_path = self._write_sql_file(str(tmp_path), "SELECT id, name FROM users;")
         result = main(["validate", sql_path, "--schema", schema_path])
         assert result == 0
 
     def test_render(self, tmp_path):
-        schema = Schema("my_app", [Table("users", [Column("id", "integer", primary_key=True), Column("name", "varchar", nullable=False)])])
+        schema = Schema(
+            "my_app",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("name", "varchar", nullable=False),
+                    ],
+                )
+            ],
+        )
         schema_path = self._write_schema_file(str(tmp_path), schema)
         result = main(["render", schema_path, "--dialect", "postgresql"])
         assert result == 0
 
     def test_render_specific_table(self, tmp_path):
-        schema = Schema("my_app", [
-            Table("users", [Column("id", "integer", primary_key=True)]),
-            Table("posts", [Column("id", "integer", primary_key=True)]),
-        ])
+        schema = Schema(
+            "my_app",
+            [
+                Table("users", [Column("id", "integer", primary_key=True)]),
+                Table("posts", [Column("id", "integer", primary_key=True)]),
+            ],
+        )
         schema_path = self._write_schema_file(str(tmp_path), schema)
         result = main(["render", schema_path, "--table", "users"])
         assert result == 0

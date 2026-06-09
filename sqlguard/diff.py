@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
-from sqlguard.schema import Schema, Table, Column, ForeignKey, Index, CheckConstraint, UniqueConstraint
+from sqlguard.schema import (
+    Column,
+    Schema,
+    Table,
+)
 
 
 class ChangeType(Enum):
@@ -57,9 +60,9 @@ class Change:
 
     change_type: ChangeType
     table: str
-    column: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
+    column: str | None = None
+    old_value: str | None = None
+    new_value: str | None = None
     breaking: bool = False
     description: str = ""
 
@@ -283,7 +286,7 @@ class SchemaDiffer:
             is_breaking, description = new.is_breaking_change_from(old)
             # Remove the type change part from description
             type_desc = f"type {'widened' if not is_breaking else 'changed'} from {old.base_type.value} to {new.base_type.value}"
-            remaining = description.replace(type_desc, "").strip("; ").strip()
+            _ = description.replace(type_desc, "").strip("; ").strip()
 
         if old.nullable != new.nullable:
             result.changes.append(
@@ -306,7 +309,8 @@ class SchemaDiffer:
                     column=new.name,
                     old_value=old.default,
                     new_value=new.default,
-                    breaking=old.default is not None and new.default is None,  # Removing default is breaking
+                    breaking=old.default is not None
+                    and new.default is None,  # Removing default is breaking
                     description=f"default changed from {old.default!r} to {new.default!r}",
                 )
             )
@@ -398,11 +402,13 @@ class SchemaDiffer:
         for name in sorted(old_fk_names & new_fk_names):
             old_fk = old_fks[name]
             new_fk = new_fks[name]
-            if (old_fk.columns != new_fk.columns or
-                old_fk.reference_table != new_fk.reference_table or
-                old_fk.reference_columns != new_fk.reference_columns or
-                old_fk.on_delete != new_fk.on_delete or
-                old_fk.on_update != new_fk.on_update):
+            if (
+                old_fk.columns != new_fk.columns
+                or old_fk.reference_table != new_fk.reference_table
+                or old_fk.reference_columns != new_fk.reference_columns
+                or old_fk.on_delete != new_fk.on_delete
+                or old_fk.on_update != new_fk.on_update
+            ):
                 result.changes.append(
                     Change(
                         change_type=ChangeType.FOREIGN_KEY_CHANGED,
@@ -449,9 +455,11 @@ class SchemaDiffer:
         for name in sorted(old_idx_names & new_idx_names):
             old_idx = old_idxs[name]
             new_idx = new_idxs[name]
-            if (old_idx.columns != new_idx.columns or
-                old_idx.unique != new_idx.unique or
-                old_idx.method != new_idx.method):
+            if (
+                old_idx.columns != new_idx.columns
+                or old_idx.unique != new_idx.unique
+                or old_idx.method != new_idx.method
+            ):
                 result.changes.append(
                     Change(
                         change_type=ChangeType.INDEX_CHANGED,

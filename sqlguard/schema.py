@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class ColumnType(Enum):
@@ -66,7 +66,7 @@ class ColumnType(Enum):
     CUSTOM = "custom"
 
     @classmethod
-    def from_string(cls, type_str: str) -> "ColumnType":
+    def from_string(cls, type_str: str) -> ColumnType:
         """Parse a string into a ColumnType enum value."""
         normalized = type_str.strip().lower().replace(" ", "_")
         # Handle common aliases
@@ -121,15 +121,15 @@ class Column:
     name: str
     type: str | ColumnType
     nullable: bool = True
-    default: Optional[str] = None
+    default: str | None = None
     primary_key: bool = False
     unique: bool = False
-    references: Optional[str] = None  # "table.column" format
-    check: Optional[str] = None
-    type_params: Optional[str] = None  # e.g., "255" for varchar(255)
-    comment: Optional[str] = None
+    references: str | None = None  # "table.column" format
+    check: str | None = None
+    type_params: str | None = None  # e.g., "255" for varchar(255)
+    comment: str | None = None
     auto_increment: bool = False
-    on_update: Optional[str] = None  # MySQL ON UPDATE
+    on_update: str | None = None  # MySQL ON UPDATE
 
     def __post_init__(self) -> None:
         if isinstance(self.type, str):
@@ -154,21 +154,21 @@ class Column:
         return base
 
     @property
-    def reference_table(self) -> Optional[str]:
+    def reference_table(self) -> str | None:
         """Extract the table name from a foreign key reference."""
         if not self.references:
             return None
         return self.references.split(".")[0]
 
     @property
-    def reference_column(self) -> Optional[str]:
+    def reference_column(self) -> str | None:
         """Extract the column name from a foreign key reference."""
         if not self.references:
             return None
         parts = self.references.split(".")
         return parts[1] if len(parts) > 1 else "id"
 
-    def is_breaking_change_from(self, old: "Column") -> tuple[bool, str]:
+    def is_breaking_change_from(self, old: Column) -> tuple[bool, str]:
         """Check if changing from `old` to this column is a breaking change.
 
         Returns (is_breaking, description).
@@ -254,7 +254,17 @@ class Column:
         )
 
     def __hash__(self) -> int:
-        return hash((self.name, self.base_type, self.nullable, self.default, self.primary_key, self.unique, self.references))
+        return hash(
+            (
+                self.name,
+                self.base_type,
+                self.nullable,
+                self.default,
+                self.primary_key,
+                self.unique,
+                self.references,
+            )
+        )
 
 
 @dataclass
@@ -291,7 +301,7 @@ class Index:
     table: str
     columns: list[str]
     unique: bool = False
-    method: Optional[str] = None  # btree, hash, gin, gist, etc.
+    method: str | None = None  # btree, hash, gin, gist, etc.
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Index):
@@ -350,9 +360,9 @@ class Table:
     indexes: list[Index] = field(default_factory=list)
     checks: list[CheckConstraint] = field(default_factory=list)
     unique_constraints: list[UniqueConstraint] = field(default_factory=list)
-    comment: Optional[str] = None
+    comment: str | None = None
 
-    def get_column(self, name: str) -> Optional[Column]:
+    def get_column(self, name: str) -> Column | None:
         """Get a column by name (case-insensitive)."""
         name_lower = name.lower()
         for col in self.columns:
@@ -399,10 +409,10 @@ class Schema:
 
     name: str
     tables: list[Table] = field(default_factory=list)
-    version: Optional[str] = None
-    description: Optional[str] = None
+    version: str | None = None
+    description: str | None = None
 
-    def get_table(self, name: str) -> Optional[Table]:
+    def get_table(self, name: str) -> Table | None:
         """Get a table by name (case-insensitive)."""
         name_lower = name.lower()
         for table in self.tables:
@@ -460,7 +470,7 @@ class Schema:
             result.extend(table.indexes)
         return result
 
-    def copy(self) -> "Schema":
+    def copy(self) -> Schema:
         """Return a deep copy of this schema."""
         return copy.deepcopy(self)
 
@@ -488,13 +498,16 @@ class Schema:
                         )
                     else:
                         ref_table = self.get_table(col.reference_table)
-                        if ref_table and col.reference_column:
-                            if ref_table.get_column(col.reference_column) is None:
-                                issues.append(
-                                    f"Table '{table.name}', column '{col.name}': "
-                                    f"references non-existent column '{col.reference_column}' "
-                                    f"in table '{col.reference_table}'"
-                                )
+                        if (
+                            ref_table
+                            and col.reference_column
+                            and ref_table.get_column(col.reference_column) is None
+                        ):
+                            issues.append(
+                                f"Table '{table.name}', column '{col.name}': "
+                                f"references non-existent column '{col.reference_column}' "
+                                f"in table '{col.reference_table}'"
+                            )
 
             # Check table-level foreign keys
             for fk in table.foreign_keys:
@@ -573,12 +586,10 @@ class Schema:
                         for idx in t.indexes
                     ],
                     "checks": [
-                        {"name": chk.name, "expression": chk.expression}
-                        for chk in t.checks
+                        {"name": chk.name, "expression": chk.expression} for chk in t.checks
                     ],
                     "unique_constraints": [
-                        {"name": uc.name, "columns": uc.columns}
-                        for uc in t.unique_constraints
+                        {"name": uc.name, "columns": uc.columns} for uc in t.unique_constraints
                     ],
                 }
                 for t in self.tables
@@ -586,7 +597,7 @@ class Schema:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Schema":
+    def from_dict(cls, data: dict[str, Any]) -> Schema:
         """Deserialize a schema from a dictionary."""
         tables: list[Table] = []
         for t_data in data.get("tables", []):

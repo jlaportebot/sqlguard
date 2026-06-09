@@ -7,9 +7,8 @@ that know how to render column types, constraints, and DDL statements.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
-from sqlguard.schema import Column, ColumnType, ForeignKey, Index, CheckConstraint, UniqueConstraint
+from sqlguard.schema import CheckConstraint, Column, ColumnType, ForeignKey, Index, UniqueConstraint
 
 
 class Dialect(ABC):
@@ -76,7 +75,7 @@ class Dialect(ABC):
             return f"ALTER TABLE {table_name} ALTER COLUMN {column_name} SET NOT NULL;"
 
     def render_alter_column_default(
-        self, table_name: str, column_name: str, default: Optional[str]
+        self, table_name: str, column_name: str, default: str | None
     ) -> str:
         """Render ALTER TABLE to set or drop a default."""
         if default is not None:
@@ -186,7 +185,10 @@ class PostgresqlDialect(Dialect):
         constraints = self.render_column_constraints(column)
         parts: list[str] = [column.name, type_str]
         if column.primary_key:
-            if column.auto_increment or column.base_type in (ColumnType.SERIAL, ColumnType.BIGSERIAL):
+            if column.auto_increment or column.base_type in (
+                ColumnType.SERIAL,
+                ColumnType.BIGSERIAL,
+            ):
                 parts.append("PRIMARY KEY")
             else:
                 parts.append("PRIMARY KEY")

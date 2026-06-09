@@ -15,17 +15,16 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
 
-from sqlguard.schema import Schema
-from sqlguard.diff import SchemaDiffer
-from sqlguard.migration import MigrationGenerator
-from sqlguard.linter import SQLLinter, Severity
-from sqlguard.validator import QueryValidator
 from sqlguard.dialects import get_dialect
+from sqlguard.diff import SchemaDiffer
+from sqlguard.linter import Severity, SQLLinter
+from sqlguard.migration import MigrationGenerator
+from sqlguard.schema import Schema
+from sqlguard.validator import QueryValidator
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entry point for the SQLGuard CLI."""
     parser = argparse.ArgumentParser(
         prog="sqlguard",
@@ -38,32 +37,56 @@ def main(argv: Optional[list[str]] = None) -> int:
     # lint subcommand
     lint_parser = subparsers.add_parser("lint", help="Lint SQL files for unsafe patterns")
     lint_parser.add_argument("file", help="SQL file to lint")
-    lint_parser.add_argument("--strict", action="store_true", help="Enable strict mode (more rules)")
-    lint_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
+    lint_parser.add_argument(
+        "--strict", action="store_true", help="Enable strict mode (more rules)"
+    )
+    lint_parser.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output as JSON"
+    )
 
     # diff subcommand
     diff_parser = subparsers.add_parser("diff", help="Diff two schema files")
     diff_parser.add_argument("old_schema", help="Path to old schema Python file")
     diff_parser.add_argument("new_schema", help="Path to new schema Python file")
-    diff_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
+    diff_parser.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output as JSON"
+    )
 
     # migrate subcommand
-    migrate_parser = subparsers.add_parser("migrate", help="Generate migration SQL from schema diff")
+    migrate_parser = subparsers.add_parser(
+        "migrate", help="Generate migration SQL from schema diff"
+    )
     migrate_parser.add_argument("old_schema", help="Path to old schema Python file")
     migrate_parser.add_argument("new_schema", help="Path to new schema Python file")
-    migrate_parser.add_argument("--dialect", default="postgresql", choices=["postgresql", "mysql", "sqlite"], help="SQL dialect")
-    migrate_parser.add_argument("--direction", default="up", choices=["up", "down"], help="Migration direction")
+    migrate_parser.add_argument(
+        "--dialect",
+        default="postgresql",
+        choices=["postgresql", "mysql", "sqlite"],
+        help="SQL dialect",
+    )
+    migrate_parser.add_argument(
+        "--direction", default="up", choices=["up", "down"], help="Migration direction"
+    )
 
     # validate subcommand
     validate_parser = subparsers.add_parser("validate", help="Validate SQL against a schema")
     validate_parser.add_argument("file", help="SQL file to validate")
-    validate_parser.add_argument("--schema", required=True, dest="schema_file", help="Path to schema Python file")
-    validate_parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
+    validate_parser.add_argument(
+        "--schema", required=True, dest="schema_file", help="Path to schema Python file"
+    )
+    validate_parser.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output as JSON"
+    )
 
     # render subcommand
     render_parser = subparsers.add_parser("render", help="Render schema as DDL SQL")
     render_parser.add_argument("schema_file", help="Path to schema Python file")
-    render_parser.add_argument("--dialect", default="postgresql", choices=["postgresql", "mysql", "sqlite"], help="SQL dialect")
+    render_parser.add_argument(
+        "--dialect",
+        default="postgresql",
+        choices=["postgresql", "mysql", "sqlite"],
+        help="SQL dialect",
+    )
     render_parser.add_argument("--table", help="Only render a specific table")
 
     args = parser.parse_args(argv)
@@ -113,7 +136,9 @@ def _load_schema_from_file(path: str) -> Schema:
 
     schema_obj = module.schema
     if not isinstance(schema_obj, Schema):
-        raise ValueError(f"'schema' variable in '{path}' must be a Schema instance, got {type(schema_obj).__name__}")
+        raise ValueError(
+            f"'schema' variable in '{path}' must be a Schema instance, got {type(schema_obj).__name__}"
+        )
 
     return schema_obj
 
@@ -144,7 +169,9 @@ def _cmd_lint(args: argparse.Namespace) -> int:
         error_count = sum(1 for i in issues if i.severity == Severity.ERROR)
         warn_count = sum(1 for i in issues if i.severity == Severity.WARNING)
         info_count = sum(1 for i in issues if i.severity in (Severity.INFO, Severity.STYLE))
-        print(f"\n  Summary: {error_count} error(s), {warn_count} warning(s), {info_count} info/style")
+        print(
+            f"\n  Summary: {error_count} error(s), {warn_count} warning(s), {info_count} info/style"
+        )
 
     return 1 if issues else 0
 
@@ -205,7 +232,9 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             print(f"✅ {args.file}: No validation errors")
             return 0
 
-        print(f"🔍 Validating {args.file} against schema '{schema.name}': {len(errors)} error(s) found\n")
+        print(
+            f"🔍 Validating {args.file} against schema '{schema.name}': {len(errors)} error(s) found\n"
+        )
         for error in errors:
             print(f"  {error}")
 

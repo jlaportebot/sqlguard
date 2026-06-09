@@ -1,14 +1,15 @@
 """Tests for sqlguard.schema module."""
 
 import pytest
+
 from sqlguard.schema import (
-    Schema,
-    Table,
+    CheckConstraint,
     Column,
     ColumnType,
     ForeignKey,
     Index,
-    CheckConstraint,
+    Schema,
+    Table,
     UniqueConstraint,
 )
 
@@ -153,18 +154,24 @@ class TestTable:
     """Tests for Table dataclass."""
 
     def test_basic_creation(self):
-        table = Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar", nullable=False),
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer", primary_key=True),
+                Column("name", "varchar", nullable=False),
+            ],
+        )
         assert table.name == "users"
         assert len(table.columns) == 2
 
     def test_get_column(self):
-        table = Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("email", "varchar"),
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer", primary_key=True),
+                Column("email", "varchar"),
+            ],
+        )
         assert table.get_column("id") is not None
         assert table.get_column("email") is not None
         assert table.get_column("nonexistent") is None
@@ -176,19 +183,25 @@ class TestTable:
         assert table.get_column("Id") is not None
 
     def test_primary_key_columns(self):
-        table = Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("name", "varchar"),
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer", primary_key=True),
+                Column("name", "varchar"),
+            ],
+        )
         pks = table.primary_key_columns
         assert len(pks) == 1
         assert pks[0].name == "id"
 
     def test_column_names(self):
-        table = Table("users", [
-            Column("id", "integer"),
-            Column("name", "varchar"),
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer"),
+                Column("name", "varchar"),
+            ],
+        )
         assert table.column_names == ["id", "name"]
 
     def test_add_column(self):
@@ -202,10 +215,13 @@ class TestTable:
             table.add_column(Column("id", "varchar"))
 
     def test_remove_column(self):
-        table = Table("users", [
-            Column("id", "integer"),
-            Column("name", "varchar"),
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer"),
+                Column("name", "varchar"),
+            ],
+        )
         removed = table.remove_column("name")
         assert removed.name == "name"
         assert len(table.columns) == 1
@@ -230,19 +246,28 @@ class TestSchema:
     """Tests for Schema dataclass."""
 
     def _make_schema(self) -> Schema:
-        return Schema("my_app", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-                Column("email", "varchar", nullable=False, unique=True),
-                Column("name", "varchar", nullable=False),
-            ]),
-            Table("posts", [
-                Column("id", "integer", primary_key=True),
-                Column("user_id", "integer", nullable=False, references="users.id"),
-                Column("title", "varchar", nullable=False),
-                Column("body", "text"),
-            ]),
-        ])
+        return Schema(
+            "my_app",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("email", "varchar", nullable=False, unique=True),
+                        Column("name", "varchar", nullable=False),
+                    ],
+                ),
+                Table(
+                    "posts",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("user_id", "integer", nullable=False, references="users.id"),
+                        Column("title", "varchar", nullable=False),
+                        Column("body", "text"),
+                    ],
+                ),
+            ],
+        )
 
     def test_basic_creation(self):
         schema = self._make_schema()
@@ -308,30 +333,45 @@ class TestSchema:
         assert len(issues) == 0
 
     def test_validate_missing_referenced_table(self):
-        schema = Schema("bad", [
-            Table("orders", [
-                Column("id", "integer", primary_key=True),
-                Column("product_id", "integer", references="products.id"),
-            ]),
-        ])
+        schema = Schema(
+            "bad",
+            [
+                Table(
+                    "orders",
+                    [
+                        Column("id", "integer", primary_key=True),
+                        Column("product_id", "integer", references="products.id"),
+                    ],
+                ),
+            ],
+        )
         issues = schema.validate()
         assert any("non-existent table" in i for i in issues)
 
     def test_validate_duplicate_column(self):
-        table = Table("users", [
-            Column("id", "integer", primary_key=True),
-            Column("id", "varchar"),  # Duplicate!
-        ])
+        table = Table(
+            "users",
+            [
+                Column("id", "integer", primary_key=True),
+                Column("id", "varchar"),  # Duplicate!
+            ],
+        )
         schema = Schema("bad", [table])
         issues = schema.validate()
         assert any("duplicate column" in i for i in issues)
 
     def test_validate_missing_primary_key(self):
-        schema = Schema("no_pk", [
-            Table("data", [
-                Column("value", "varchar"),
-            ]),
-        ])
+        schema = Schema(
+            "no_pk",
+            [
+                Table(
+                    "data",
+                    [
+                        Column("value", "varchar"),
+                    ],
+                ),
+            ],
+        )
         issues = schema.validate()
         assert any("no primary key" in i for i in issues)
 
@@ -352,13 +392,20 @@ class TestSchema:
         assert schema.tables[0].columns[0].name == "id"
 
     def test_foreign_key_with_index(self):
-        schema = Schema("indexed", [
-            Table("users", [
-                Column("id", "integer", primary_key=True),
-            ], indexes=[
-                Index("idx_users_email", "users", ["email"], unique=True),
-            ]),
-        ])
+        schema = Schema(
+            "indexed",
+            [
+                Table(
+                    "users",
+                    [
+                        Column("id", "integer", primary_key=True),
+                    ],
+                    indexes=[
+                        Index("idx_users_email", "users", ["email"], unique=True),
+                    ],
+                ),
+            ],
+        )
         issues = schema.validate()
         assert any("non-existent column" in i for i in issues)
 

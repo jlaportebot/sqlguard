@@ -1,8 +1,9 @@
 """Tests for sqlguard.dialects module."""
 
 import pytest
-from sqlguard.schema import Column, ColumnType, ForeignKey, Index, CheckConstraint, UniqueConstraint
-from sqlguard.dialects import PostgresqlDialect, MysqlDialect, SqliteDialect, get_dialect
+
+from sqlguard.dialects import MysqlDialect, PostgresqlDialect, SqliteDialect, get_dialect
+from sqlguard.schema import CheckConstraint, Column, ForeignKey, Index, UniqueConstraint
 
 
 class TestPostgresqlDialect:

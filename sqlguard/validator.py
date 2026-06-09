@@ -10,10 +10,9 @@ Validates SQL queries against a schema to find issues like:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
-from sqlguard.schema import Schema, Table, Column, ColumnType
+from sqlguard.schema import Schema
 
 
 @dataclass
@@ -21,8 +20,8 @@ class ValidationError:
     """A validation error found in a SQL query."""
 
     message: str
-    table: Optional[str] = None
-    column: Optional[str] = None
+    table: str | None = None
+    column: str | None = None
     line: int = 1
     severity: str = "error"  # error, warning
 
@@ -66,7 +65,7 @@ class QueryValidator:
             return errors
 
         # Normalize SQL
-        sql_upper = sql_upper_clean = re.sub(r"'[^']*'", "''", sql_stripped).upper()
+        sql_upper_clean = re.sub(r"'[^']*'", "''", sql_stripped).upper()
 
         # Extract referenced tables and columns
         tables_referenced = self._extract_tables(sql_upper_clean)
@@ -97,7 +96,7 @@ class QueryValidator:
                     )
             elif ref_lower not in schema_table_names:
                 # Could be a subquery alias, skip those
-                if not re.search(r'\bAS\s+' + re.escape(table_ref) + r'\b', sql_upper_clean):
+                if not re.search(r"\bAS\s+" + re.escape(table_ref) + r"\b", sql_upper_clean):
                     errors.append(
                         ValidationError(
                             message=f"Table '{table_ref}' does not exist in schema",
@@ -109,7 +108,7 @@ class QueryValidator:
         # Validate column references
         for col_ref in columns_referenced:
             col_name = col_ref
-            table_name: Optional[str] = None
+            table_name: str | None = None
 
             # Handle table.column notation
             if "." in col_ref:
@@ -124,18 +123,24 @@ class QueryValidator:
             # Check column existence
             if table_name:
                 table_obj = self.schema.get_table(table_name)
-                if table_obj and table_name.lower() in schema_table_names:
-                    if table_obj.get_column(col_name) is None:
-                        # Check if it's a function call (skip)
-                        if not re.match(r'(?:COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|CAST|EXTRACT|ROW_NUMBER|RANK|DENSE_RANK|LEAD|LAG|FIRST_VALUE|LAST_VALUE|NTH_VALUE|OVER|PARTITION)', col_name, re.IGNORECASE):
-                            errors.append(
-                                ValidationError(
-                                    message=f"Column '{col_name}' does not exist in table '{table_name}'",
-                                    table=table_name,
-                                    column=col_name,
-                                    severity="error",
-                                )
-                            )
+                if (
+                    table_obj
+                    and table_name.lower() in schema_table_names
+                    and table_obj.get_column(col_name) is None
+                    and not re.match(
+                        r"(?:COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|CAST|EXTRACT|ROW_NUMBER|RANK|DENSE_RANK|LEAD|LAG|FIRST_VALUE|LAST_VALUE|NTH_VALUE|OVER|PARTITION)",
+                        col_name,
+                        re.IGNORECASE,
+                    )
+                ):
+                    errors.append(
+                        ValidationError(
+                            message=f"Column '{col_name}' does not exist in table '{table_name}'",
+                            table=table_name,
+                            column=col_name,
+                            severity="error",
+                        )
+                    )
             else:
                 # Ambiguous reference check — is the column in multiple tables?
                 tables_with_col: list[str] = []
@@ -164,7 +169,12 @@ class QueryValidator:
                         )
                 elif len(tables_with_col) > 1 and len(tables_referenced) > 1:
                     # Column exists in multiple tables — ambiguous
-                    matching = [t for t in tables_with_col if t.lower() in {alias_map.get(r.lower(), r.lower()) for r in tables_referenced}]
+                    matching = [
+                        t
+                        for t in tables_with_col
+                        if t.lower()
+                        in {alias_map.get(r.lower(), r.lower()) for r in tables_referenced}
+                    ]
                     if len(matching) > 1:
                         errors.append(
                             ValidationError(
@@ -191,21 +201,102 @@ class QueryValidator:
     def _is_keyword_or_function(self, name: str) -> bool:
         """Check if a name is a SQL keyword or function (not a column)."""
         sql_keywords = {
-            "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "IN", "IS", "NULL",
-            "TRUE", "FALSE", "AS", "ON", "JOIN", "LEFT", "RIGHT", "INNER",
-            "OUTER", "CROSS", "FULL", "GROUP", "ORDER", "BY", "HAVING",
-            "LIMIT", "OFFSET", "UNION", "ALL", "DISTINCT", "EXISTS", "BETWEEN",
-            "LIKE", "CASE", "WHEN", "THEN", "ELSE", "END", "ASC", "DESC",
-            "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "CREATE",
-            "DROP", "ALTER", "TABLE", "INDEX", "VIEW", "PRIMARY", "KEY",
-            "FOREIGN", "REFERENCES", "CONSTRAINT", "DEFAULT", "CHECK", "UNIQUE",
-            "AUTO_INCREMENT", "SERIAL", "RETURNING", "COUNT", "SUM", "AVG",
-            "MIN", "MAX", "COALESCE", "NULLIF", "CAST", "EXTRACT",
-            "ROW_NUMBER", "RANK", "DENSE_RANK", "LEAD", "LAG", "OVER",
-            "PARTITION", "NOW", "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP",
-            "FALSE", "TRUE", "WINDOW", "RECURSIVE", "WITH", "IF", "IIF",
-            "TOTAL", "GROUP_CONCAT", "STRING_AGG", "ARRAY_AGG", "BOOL_AND",
-            "BOOL_OR", "EVERY", "SOME", "ANY",
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "AND",
+            "OR",
+            "NOT",
+            "IN",
+            "IS",
+            "NULL",
+            "TRUE",
+            "FALSE",
+            "AS",
+            "ON",
+            "JOIN",
+            "LEFT",
+            "RIGHT",
+            "INNER",
+            "OUTER",
+            "CROSS",
+            "FULL",
+            "GROUP",
+            "ORDER",
+            "BY",
+            "HAVING",
+            "LIMIT",
+            "OFFSET",
+            "UNION",
+            "ALL",
+            "DISTINCT",
+            "EXISTS",
+            "BETWEEN",
+            "LIKE",
+            "CASE",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "END",
+            "ASC",
+            "DESC",
+            "INSERT",
+            "INTO",
+            "VALUES",
+            "UPDATE",
+            "SET",
+            "DELETE",
+            "CREATE",
+            "DROP",
+            "ALTER",
+            "TABLE",
+            "INDEX",
+            "VIEW",
+            "PRIMARY",
+            "KEY",
+            "FOREIGN",
+            "REFERENCES",
+            "CONSTRAINT",
+            "DEFAULT",
+            "CHECK",
+            "UNIQUE",
+            "AUTO_INCREMENT",
+            "SERIAL",
+            "RETURNING",
+            "COUNT",
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX",
+            "COALESCE",
+            "NULLIF",
+            "CAST",
+            "EXTRACT",
+            "ROW_NUMBER",
+            "RANK",
+            "DENSE_RANK",
+            "LEAD",
+            "LAG",
+            "OVER",
+            "PARTITION",
+            "NOW",
+            "CURRENT_DATE",
+            "CURRENT_TIME",
+            "CURRENT_TIMESTAMP",
+            "WINDOW",
+            "RECURSIVE",
+            "WITH",
+            "IF",
+            "IIF",
+            "TOTAL",
+            "GROUP_CONCAT",
+            "STRING_AGG",
+            "ARRAY_AGG",
+            "BOOL_AND",
+            "BOOL_OR",
+            "EVERY",
+            "SOME",
+            "ANY",
         }
         return name.upper() in sql_keywords
 
@@ -214,31 +305,31 @@ class QueryValidator:
         tables: list[str] = []
 
         # FROM clause
-        from_pattern = r'\bFROM\s+(\w+)'
+        from_pattern = r"\bFROM\s+(\w+)"
         for match in re.finditer(from_pattern, sql_upper):
             name = match.group(1)
             if not self._is_keyword_or_function(name):
                 tables.append(name)
 
         # JOIN clauses
-        join_pattern = r'\b(?:INNER|LEFT|RIGHT|FULL|CROSS)?\s*JOIN\s+(\w+)'
+        join_pattern = r"\b(?:INNER|LEFT|RIGHT|FULL|CROSS)?\s*JOIN\s+(\w+)"
         for match in re.finditer(join_pattern, sql_upper):
             name = match.group(1)
             if not self._is_keyword_or_function(name):
                 tables.append(name)
 
         # INSERT INTO
-        insert_pattern = r'\bINSERT\s+INTO\s+(\w+)'
+        insert_pattern = r"\bINSERT\s+INTO\s+(\w+)"
         for match in re.finditer(insert_pattern, sql_upper):
             tables.append(match.group(1))
 
         # UPDATE
-        update_pattern = r'\bUPDATE\s+(\w+)'
+        update_pattern = r"\bUPDATE\s+(\w+)"
         for match in re.finditer(update_pattern, sql_upper):
             tables.append(match.group(1))
 
         # DELETE FROM
-        delete_pattern = r'\bDELETE\s+FROM\s+(\w+)'
+        delete_pattern = r"\bDELETE\s+FROM\s+(\w+)"
         for match in re.finditer(delete_pattern, sql_upper):
             tables.append(match.group(1))
 
@@ -249,7 +340,7 @@ class QueryValidator:
         columns: list[str] = []
 
         # table.column notation
-        dot_pattern = r'(\w+)\.(\w+)'
+        dot_pattern = r"(\w+)\.(\w+)"
         for match in re.finditer(dot_pattern, sql_upper):
             table_part = match.group(1)
             col_part = match.group(2)
@@ -257,31 +348,33 @@ class QueryValidator:
                 columns.append(f"{table_part}.{col_part}")
 
         # Standalone columns in SELECT (before FROM)
-        select_match = re.search(r'\bSELECT\s+(.*?)\bFROM\b', sql_upper, re.DOTALL)
+        select_match = re.search(r"\bSELECT\s+(.*?)\bFROM\b", sql_upper, re.DOTALL)
         if select_match:
             select_clause = select_match.group(1)
             # Split by comma and extract column names
-            parts = re.split(r',', select_clause)
+            parts = re.split(r",", select_clause)
             for part in parts:
                 part = part.strip()
                 # Skip aggregates, functions, *, and aliases
-                if part in ("*",) or re.match(r'(?:COUNT|SUM|AVG|MIN|MAX)\s*\(', part):
+                if part in ("*",) or re.match(r"(?:COUNT|SUM|AVG|MIN|MAX)\s*\(", part):
                     continue
                 # Skip expressions with parentheses (function calls)
                 if "(" in part and ")" in part:
                     continue
                 # Extract the last word (after AS if aliased)
-                alias_split = re.split(r'\bAS\b', part, flags=re.IGNORECASE)
+                alias_split = re.split(r"\bAS\b", part, flags=re.IGNORECASE)
                 col_name = alias_split[0].strip().split()[-1] if alias_split[0].strip() else ""
                 if col_name and not self._is_keyword_or_function(col_name) and "." not in col_name:
                     columns.append(col_name)
 
         # Columns in WHERE clause
-        where_match = re.search(r'\bWHERE\s+(.+?)(?:\bGROUP\b|\bORDER\b|\bHAVING\b|\bLIMIT\b|;|$)', sql_upper, re.DOTALL)
+        where_match = re.search(
+            r"\bWHERE\s+(.+?)(?:\bGROUP\b|\bORDER\b|\bHAVING\b|\bLIMIT\b|;|$)", sql_upper, re.DOTALL
+        )
         if where_match:
             where_clause = where_match.group(1)
             # Extract column names from comparisons: col = value, col > value, etc.
-            comp_pattern = r'(\w+)\s*(?:=|!=|<>|>|<|>=|<=|LIKE|IN|IS|BETWEEN)'
+            comp_pattern = r"(\w+)\s*(?:=|!=|<>|>|<|>=|<=|LIKE|IN|IS|BETWEEN)"
             for match in re.finditer(comp_pattern, where_clause):
                 name = match.group(1)
                 if not self._is_keyword_or_function(name) and "." not in name:
@@ -294,15 +387,30 @@ class QueryValidator:
         aliases: dict[str, str] = {}
 
         # Pattern: FROM table alias or FROM table AS alias
-        from_alias_pattern = r'\bFROM\s+(\w+)\s+(?:AS\s+)?(\w+)'
+        from_alias_pattern = r"\bFROM\s+(\w+)\s+(?:AS\s+)?(\w+)"
         for match in re.finditer(from_alias_pattern, sql_upper):
             table_name = match.group(1)
             alias = match.group(2)
-            if not self._is_keyword_or_function(alias) and alias.upper() not in ("WHERE", "JOIN", "INNER", "LEFT", "RIGHT", "CROSS", "FULL", "ON", "SET", "GROUP", "ORDER", "HAVING", "LIMIT", "UNION"):
+            if not self._is_keyword_or_function(alias) and alias.upper() not in (
+                "WHERE",
+                "JOIN",
+                "INNER",
+                "LEFT",
+                "RIGHT",
+                "CROSS",
+                "FULL",
+                "ON",
+                "SET",
+                "GROUP",
+                "ORDER",
+                "HAVING",
+                "LIMIT",
+                "UNION",
+            ):
                 aliases[alias] = table_name
 
         # Pattern: JOIN table alias or JOIN table AS alias
-        join_alias_pattern = r'\bJOIN\s+(\w+)\s+(?:AS\s+)?(\w+)\s+ON\b'
+        join_alias_pattern = r"\bJOIN\s+(\w+)\s+(?:AS\s+)?(\w+)\s+ON\b"
         for match in re.finditer(join_alias_pattern, sql_upper):
             table_name = match.group(1)
             alias = match.group(2)
@@ -316,10 +424,10 @@ class QueryValidator:
         errors: list[ValidationError] = []
 
         # Extract JOIN ... ON conditions
-        join_pattern = r'\bJOIN\s+(\w+)\s+(?:AS\s+)?(\w+)?\s*ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)'
+        join_pattern = r"\\bJOIN\\s+(\\w+)\\s+(?:AS\\s+)?(\\w+)?\\s*ON\\s+(\\w+)\\.(\\w+)\\s*=\\s*(\\w+)\\.(\\w+)"
         for match in re.finditer(join_pattern, sql_upper):
-            table1_name = match.group(1)
-            alias1 = match.group(2)
+            _ = match.group(1)
+            _ = match.group(2)
             left_alias = match.group(3)
             left_col = match.group(4)
             right_alias = match.group(5)
@@ -355,18 +463,22 @@ class QueryValidator:
 
         return errors
 
-    def _validate_order_by(self, sql_upper: str, alias_map: dict[str, str]) -> list[ValidationError]:
+    def _validate_order_by(
+        self, sql_upper: str, alias_map: dict[str, str]
+    ) -> list[ValidationError]:
         """Validate ORDER BY references."""
         errors: list[ValidationError] = []
 
-        order_match = re.search(r'\bORDER\s+BY\s+(.+?)(?:\bLIMIT\b|\bOFFSET\b|;|$)', sql_upper, re.DOTALL)
+        order_match = re.search(
+            r"\bORDER\s+BY\s+(.+?)(?:\bLIMIT\b|\bOFFSET\b|;|$)", sql_upper, re.DOTALL
+        )
         if order_match:
             order_clause = order_match.group(1).strip()
             parts = [p.strip() for p in order_clause.split(",")]
 
             for part in parts:
                 # Remove ASC/DESC
-                col_ref = re.sub(r'\b(ASC|DESC)\b', '', part, flags=re.IGNORECASE).strip()
+                col_ref = re.sub(r"\b(ASC|DESC)\b", "", part, flags=re.IGNORECASE).strip()
                 if not col_ref or col_ref.isdigit():
                     continue  # Ordinal or empty
 
@@ -386,11 +498,15 @@ class QueryValidator:
 
         return errors
 
-    def _validate_group_by(self, sql_upper: str, alias_map: dict[str, str]) -> list[ValidationError]:
+    def _validate_group_by(
+        self, sql_upper: str, alias_map: dict[str, str]
+    ) -> list[ValidationError]:
         """Validate GROUP BY references."""
         errors: list[ValidationError] = []
 
-        group_match = re.search(r'\bGROUP\s+BY\s+(.+?)(?:\bHAVING\b|\bORDER\b|\bLIMIT\b|;|$)', sql_upper, re.DOTALL)
+        group_match = re.search(
+            r"\bGROUP\s+BY\s+(.+?)(?:\bHAVING\b|\bORDER\b|\bLIMIT\b|;|$)", sql_upper, re.DOTALL
+        )
         if group_match:
             group_clause = group_match.group(1).strip()
             parts = [p.strip() for p in group_clause.split(",")]

@@ -1,13 +1,63 @@
 """SQLGuard — Schema validation, migration generation, and query safety for Python SQL projects."""
 
-from sqlguard.schema import Schema, Table, Column, ColumnType, ForeignKey, Index, CheckConstraint, UniqueConstraint
-from sqlguard.diff import SchemaDiff, SchemaDiffer, ChangeType, Change
-from sqlguard.migration import MigrationGenerator, Migration, MigrationStep
-from sqlguard.linter import SQLLinter, LintIssue, LintRule, Severity
+from sqlguard.analyzer import (
+    AnalysisFinding,
+    AnalysisResult,
+    AnalysisRule,
+    SemanticAnalyzer,
+    analyze_sql,
+)
+from sqlguard.ast_nodes import (
+    BetweenExpression,
+    BinaryOp,
+    CaseExpression,
+    CastExpression,
+    ColumnRef,
+    CommonTableExpression,
+    DeleteStatement,
+    ExistsExpression,
+    Expression,
+    FromClause,
+    FunctionCall,
+    InExpression,
+    InsertStatement,
+    IsNullExpression,
+    JoinClause,
+    LikeExpression,
+    Literal,
+    ParameterRef,
+    SelectColumn,
+    SelectStatement,
+    SetOperation,
+    SortItem,
+    SqlProgram,
+    Star,
+    SubqueryExpression,
+    TableRef,
+    TypeCast,
+    UnaryOp,
+    UpdateStatement,
+    WindowSpec,
+)
+from sqlguard.dialects import Dialect, MysqlDialect, PostgresqlDialect, SqliteDialect, get_dialect
+from sqlguard.diff import Change, ChangeType, SchemaDiff, SchemaDiffer
+from sqlguard.linter import LintIssue, LintRule, Severity, SQLLinter
+from sqlguard.migration import Migration, MigrationGenerator, MigrationStep
+from sqlguard.parser import ParseError, Parser, parse_sql
+from sqlguard.schema import (
+    CheckConstraint,
+    Column,
+    ColumnType,
+    ForeignKey,
+    Index,
+    Schema,
+    Table,
+    UniqueConstraint,
+)
+from sqlguard.tokens import Token, Tokenizer, TokenType, tokenize
 from sqlguard.validator import QueryValidator, ValidationError
-from sqlguard.dialects import Dialect, PostgresqlDialect, MysqlDialect, SqliteDialect, get_dialect
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "Schema",
     "Table",
@@ -35,4 +85,49 @@ __all__ = [
     "MysqlDialect",
     "SqliteDialect",
     "get_dialect",
+    # Parser module
+    "Token",
+    "TokenType",
+    "Tokenizer",
+    "tokenize",
+    "Parser",
+    "ParseError",
+    "parse_sql",
+    # AST module
+    "SqlProgram",
+    "SelectStatement",
+    "InsertStatement",
+    "UpdateStatement",
+    "DeleteStatement",
+    "Expression",
+    "Literal",
+    "ColumnRef",
+    "Star",
+    "BinaryOp",
+    "UnaryOp",
+    "FunctionCall",
+    "TableRef",
+    "FromClause",
+    "JoinClause",
+    "SelectColumn",
+    "SortItem",
+    "CaseExpression",
+    "InExpression",
+    "BetweenExpression",
+    "LikeExpression",
+    "IsNullExpression",
+    "ExistsExpression",
+    "SubqueryExpression",
+    "CastExpression",
+    "TypeCast",
+    "ParameterRef",
+    "WindowSpec",
+    "CommonTableExpression",
+    "SetOperation",
+    # Analyzer module
+    "SemanticAnalyzer",
+    "AnalysisResult",
+    "AnalysisFinding",
+    "AnalysisRule",
+    "analyze_sql",
 ]
