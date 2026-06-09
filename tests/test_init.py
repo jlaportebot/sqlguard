@@ -43,4 +43,4 @@ class TestImports:
         assert sqlguard.SqliteDialect is not None
 
     def test_version(self):
-        assert sqlguard.__version__ == "0.1.0"
+        assert sqlguard.__version__ == "0.2.0"

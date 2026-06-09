@@ -215,8 +215,8 @@ class SQLLinter:
     ) -> list[LintIssue]:
         """Check for UPDATE without WHERE clause."""
         issues: list[LintIssue] = []
-        if re.search(r"\\bUPDATE\\s+\\w+\\s+SET\\b", sql_clean_upper) and not re.search(
-            r"\\bWHERE\\b", sql_clean_upper
+        if re.search(r"\bUPDATE\s+\w+\s+SET\b", sql_clean_upper) and not re.search(
+            r"\bWHERE\b", sql_clean_upper
         ):
             line_num = self._find_line_number(lines, "UPDATE")
             issues.append(

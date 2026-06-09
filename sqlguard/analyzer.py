@@ -33,7 +33,6 @@ from sqlguard.ast_nodes import (
     FunctionRef,
     InExpression,
     InsertStatement,
-    JoinClause,
     LikeExpression,
     Literal,
     SelectColumn,
