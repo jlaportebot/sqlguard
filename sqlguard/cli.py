@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     migrate_parser.add_argument(
         "--dialect",
         default="postgresql",
-        choices=["postgresql", "mysql", "sqlite"],
+        choices=["postgresql", "mysql", "sqlite", "oracle"],
         help="SQL dialect",
     )
     migrate_parser.add_argument(
@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     render_parser.add_argument(
         "--dialect",
         default="postgresql",
-        choices=["postgresql", "mysql", "sqlite"],
+        choices=["postgresql", "mysql", "sqlite", "oracle"],
         help="SQL dialect",
     )
     render_parser.add_argument("--table", help="Only render a specific table")
