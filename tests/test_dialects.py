@@ -2,7 +2,13 @@
 
 import pytest
 
-from sqlguard.dialects import MysqlDialect, PostgresqlDialect, SqliteDialect, get_dialect
+from sqlguard.dialects import (
+    MysqlDialect,
+    OracleDialect,
+    PostgresqlDialect,
+    SqliteDialect,
+    get_dialect,
+)
 from sqlguard.schema import CheckConstraint, Column, ForeignKey, Index, UniqueConstraint
 
 
@@ -238,6 +244,216 @@ class TestSqliteDialect:
         assert "CREATE INDEX idx_users_email ON users (email)" in sql
 
 
+class TestOracleDialect:
+    """Tests for Oracle dialect rendering."""
+
+    def setup_method(self):
+        self.dialect = OracleDialect()
+
+    def test_render_column_type_integer(self):
+        col = Column("id", "integer")
+        assert self.dialect.render_column_type(col) == "NUMBER(38)"
+
+    def test_render_column_type_smallint(self):
+        col = Column("id", "smallint")
+        assert self.dialect.render_column_type(col) == "NUMBER(5)"
+
+    def test_render_column_type_bigint(self):
+        col = Column("id", "bigint")
+        assert self.dialect.render_column_type(col) == "NUMBER(38)"
+
+    def test_render_column_type_varchar(self):
+        col = Column("name", "varchar", type_params="100")
+        assert self.dialect.render_column_type(col) == "VARCHAR2(100)"
+
+    def test_render_column_type_varchar_default(self):
+        col = Column("name", "varchar")
+        assert self.dialect.render_column_type(col) == "VARCHAR2(255)"
+
+    def test_render_column_type_char(self):
+        col = Column("code", "char", type_params="10")
+        assert self.dialect.render_column_type(col) == "CHAR(10)"
+
+    def test_render_column_type_text(self):
+        col = Column("description", "text")
+        assert self.dialect.render_column_type(col) == "CLOB"
+
+    def test_render_column_type_decimal(self):
+        col = Column("price", "decimal", type_params="10,2")
+        assert self.dialect.render_column_type(col) == "NUMBER(10,2)"
+
+    def test_render_column_type_decimal_default(self):
+        col = Column("price", "decimal")
+        assert self.dialect.render_column_type(col) == "NUMBER(10,2)"
+
+    def test_render_column_type_real(self):
+        col = Column("ratio", "real")
+        assert self.dialect.render_column_type(col) == "BINARY_FLOAT"
+
+    def test_render_column_type_double_precision(self):
+        col = Column("ratio", "double_precision")
+        assert self.dialect.render_column_type(col) == "BINARY_DOUBLE"
+
+    def test_render_column_type_date(self):
+        col = Column("created_at", "date")
+        assert self.dialect.render_column_type(col) == "DATE"
+
+    def test_render_column_type_timestamp(self):
+        col = Column("created_at", "timestamp")
+        assert self.dialect.render_column_type(col) == "TIMESTAMP"
+
+    def test_render_column_type_timestamptz(self):
+        col = Column("created_at", "timestamptz")
+        assert self.dialect.render_column_type(col) == "TIMESTAMP WITH TIME ZONE"
+
+    def test_render_column_type_blob(self):
+        col = Column("data", "blob")
+        assert self.dialect.render_column_type(col) == "BLOB"
+
+    def test_render_column_type_bytea(self):
+        col = Column("data", "bytea")
+        assert self.dialect.render_column_type(col) == "BLOB"
+
+    def test_render_column_type_boolean(self):
+        col = Column("active", "boolean")
+        assert self.dialect.render_column_type(col) == "NUMBER(1)"
+
+    def test_render_column_type_uuid(self):
+        col = Column("id", "uuid")
+        assert self.dialect.render_column_type(col) == "RAW(16)"
+
+    def test_render_column_type_json(self):
+        col = Column("data", "json")
+        assert self.dialect.render_column_type(col) == "CLOB"
+
+    def test_render_column_type_jsonb(self):
+        col = Column("data", "jsonb")
+        assert self.dialect.render_column_type(col) == "CLOB"
+
+    def test_render_column_constraints(self):
+        col = Column("email", "varchar", nullable=False, unique=True)
+        constraints = self.dialect.render_column_constraints(col)
+        assert "NOT NULL" in constraints
+        assert "UNIQUE" in constraints
+
+    def test_render_column_constraints_with_default(self):
+        col = Column("active", "boolean", default="1")
+        constraints = self.dialect.render_column_constraints(col)
+        assert "DEFAULT 1" in constraints
+
+    def test_render_column_constraints_with_fk(self):
+        col = Column("user_id", "integer", references="users.id")
+        constraints = self.dialect.render_column_constraints(col)
+        assert "REFERENCES users(id)" in constraints
+
+    def test_render_column_definition(self):
+        col = Column("id", "integer", primary_key=True)
+        definition = self.dialect.render_column_definition(col)
+        assert "id" in definition
+        assert "NUMBER(38)" in definition
+        assert "PRIMARY KEY" in definition
+
+    def test_render_column_definition_full(self):
+        col = Column("email", "varchar", nullable=False, unique=True, default="'none@example.com'")
+        definition = self.dialect.render_column_definition(col)
+        assert "email" in definition
+        assert "NOT NULL" in definition
+        assert "UNIQUE" in definition
+        assert "DEFAULT" in definition
+
+    def test_render_add_column(self):
+        col = Column("bio", "text", nullable=True)
+        sql = self.dialect.render_add_column("users", col)
+        assert "ALTER TABLE users ADD" in sql
+        assert "bio" in sql
+
+    def test_render_drop_column(self):
+        sql = self.dialect.render_drop_column("users", "age")
+        assert "ALTER TABLE users DROP COLUMN age" in sql
+
+    def test_render_alter_column_type(self):
+        col = Column("name", "varchar", type_params="200")
+        sql = self.dialect.render_alter_column_type("users", col)
+        assert "ALTER TABLE users MODIFY" in sql
+        assert "name" in sql
+        assert "VARCHAR2(200)" in sql
+
+    def test_render_alter_column_nullable(self):
+        sql = self.dialect.render_alter_column_nullability("users", "name", True)
+        assert "MODIFY" in sql
+        assert "NULL" in sql
+
+        sql = self.dialect.render_alter_column_nullability("users", "name", False)
+        assert "MODIFY" in sql
+        assert "NOT NULL" in sql
+
+    def test_render_alter_column_default(self):
+        sql = self.dialect.render_alter_column_default("users", "status", "'active'")
+        assert "MODIFY" in sql
+        assert "DEFAULT 'active'" in sql
+
+        sql = self.dialect.render_alter_column_default("users", "status", None)
+        assert "MODIFY" in sql
+        assert "DEFAULT NULL" in sql
+
+    def test_render_create_table(self):
+        columns = [
+            Column("id", "integer", primary_key=True),
+            Column("name", "varchar", nullable=False),
+            Column("email", "varchar", unique=True),
+        ]
+        sql = self.dialect.render_create_table("users", columns)
+        assert "CREATE TABLE users" in sql
+        assert "id" in sql
+        assert "name" in sql
+        assert "email" in sql
+        assert "PRIMARY KEY" in sql
+
+    def test_render_foreign_key(self):
+        fk = ForeignKey("fk_posts_user", ["user_id"], "users", ["id"], on_delete="CASCADE")
+        sql = self.dialect.render_foreign_key(fk, "posts")
+        assert "ALTER TABLE posts ADD CONSTRAINT fk_posts_user" in sql
+        assert "FOREIGN KEY (user_id)" in sql
+        assert "REFERENCES users(id)" in sql
+        assert "ON DELETE CASCADE" in sql
+
+    def test_render_index(self):
+        idx = Index("idx_users_email", "users", ["email"], unique=True)
+        sql = self.dialect.render_index(idx)
+        assert "CREATE UNIQUE INDEX idx_users_email" in sql
+        assert "ON users (email)" in sql
+
+    def test_render_check_constraint(self):
+        chk = CheckConstraint("chk_age", "users", "age >= 0")
+        sql = self.dialect.render_check(chk)
+        assert "ADD CONSTRAINT chk_age CHECK (age >= 0)" in sql
+
+    def test_render_unique_constraint(self):
+        uc = UniqueConstraint("uc_email_tenant", "users", ["email", "tenant_id"])
+        sql = self.dialect.render_unique_constraint(uc)
+        assert "ADD CONSTRAINT uc_email_tenant UNIQUE (email, tenant_id)" in sql
+
+    def test_render_drop_table(self):
+        sql = self.dialect.render_drop_table("users")
+        assert "DROP TABLE users" in sql
+
+    def test_render_drop_foreign_key(self):
+        sql = self.dialect.render_drop_foreign_key("fk_name", "posts")
+        assert "DROP CONSTRAINT fk_name" in sql
+
+    def test_render_drop_index(self):
+        sql = self.dialect.render_drop_index("idx_name")
+        assert "DROP INDEX idx_name" in sql
+
+    def test_render_drop_check(self):
+        sql = self.dialect.render_drop_check("chk_name", "users")
+        assert "DROP CONSTRAINT chk_name" in sql
+
+    def test_render_drop_unique_constraint(self):
+        sql = self.dialect.render_drop_unique_constraint("uc_name", "users")
+        assert "DROP CONSTRAINT uc_name" in sql
+
+
 class TestGetDialect:
     """Tests for dialect factory function."""
 
@@ -259,10 +475,14 @@ class TestGetDialect:
     def test_sqlite(self):
         assert isinstance(get_dialect("sqlite"), SqliteDialect)
 
+    def test_oracle(self):
+        assert isinstance(get_dialect("oracle"), OracleDialect)
+
     def test_unknown_dialect(self):
         with pytest.raises(ValueError, match="Unknown dialect"):
-            get_dialect("oracle")
+            get_dialect("sqlserver")
 
     def test_case_insensitive(self):
         assert isinstance(get_dialect("PostgreSQL"), PostgresqlDialect)
         assert isinstance(get_dialect("MySQL"), MysqlDialect)
+        assert isinstance(get_dialect("Oracle"), OracleDialect)

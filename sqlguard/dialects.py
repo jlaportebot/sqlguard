@@ -463,6 +463,127 @@ class SqliteDialect(Dialect):
         )
 
 
+class OracleDialect(Dialect):
+    """Oracle-specific SQL rendering."""
+
+    name = "oracle"
+
+    TYPE_MAP: dict[ColumnType, str] = {
+        ColumnType.SMALLINT: "NUMBER(5)",
+        ColumnType.INTEGER: "NUMBER(38)",
+        ColumnType.BIGINT: "NUMBER(38)",
+        ColumnType.SERIAL: "NUMBER(38)",
+        ColumnType.BIGSERIAL: "NUMBER(38)",
+        ColumnType.DECIMAL: "NUMBER",
+        ColumnType.NUMERIC: "NUMBER",
+        ColumnType.REAL: "BINARY_FLOAT",
+        ColumnType.DOUBLE_PRECISION: "BINARY_DOUBLE",
+        ColumnType.CHAR: "CHAR",
+        ColumnType.VARCHAR: "VARCHAR2",
+        ColumnType.TEXT: "CLOB",
+        ColumnType.BYTEA: "BLOB",
+        ColumnType.BLOB: "BLOB",
+        ColumnType.DATE: "DATE",
+        ColumnType.TIME: "TIMESTAMP",  # Oracle doesn't have separate TIME type
+        ColumnType.TIMESTAMP: "TIMESTAMP",
+        ColumnType.TIMESTAMPTZ: "TIMESTAMP WITH TIME ZONE",
+        ColumnType.INTERVAL: "INTERVAL DAY TO SECOND",
+        ColumnType.BOOLEAN: "NUMBER(1)",
+        ColumnType.JSON: "CLOB",
+        ColumnType.JSONB: "CLOB",
+        ColumnType.UUID: "RAW(16)",
+        ColumnType.INET: "VARCHAR2(45)",
+        ColumnType.CIDR: "VARCHAR2(45)",
+        ColumnType.MACADDR: "VARCHAR2(17)",
+        ColumnType.ARRAY: "CLOB",  # Oracle uses collections, fallback to CLOB
+        ColumnType.CUSTOM: "CLOB",
+    }
+
+    def render_column_type(self, column: Column) -> str:
+        base = self.TYPE_MAP.get(column.base_type, "CLOB")
+        if column.type_params:
+            return f"{base}({column.type_params})"
+        if column.base_type == ColumnType.VARCHAR and not column.type_params:
+            return "VARCHAR2(255)"
+        if column.base_type == ColumnType.CHAR and not column.type_params:
+            return "CHAR(1)"
+        if column.base_type == ColumnType.DECIMAL and not column.type_params:
+            return "NUMBER(10,2)"
+        return base
+
+    def render_column_constraints(self, column: Column) -> str:
+        parts: list[str] = []
+        if not column.nullable:
+            parts.append("NOT NULL")
+        if column.default is not None:
+            parts.append(f"DEFAULT {column.default}")
+        if column.unique and not column.primary_key:
+            parts.append("UNIQUE")
+        if column.references and column.reference_table:
+            ref = f"{column.reference_table}({column.reference_column or 'id'})"
+            parts.append(f"REFERENCES {ref}")
+        return " ".join(parts)
+
+    def render_column_definition(self, column: Column) -> str:
+        type_str = self.render_column_type(column)
+        constraints = self.render_column_constraints(column)
+        parts: list[str] = [column.name, type_str]
+        if column.primary_key:
+            parts.append("PRIMARY KEY")
+        if constraints:
+            parts.append(constraints)
+        return " ".join(parts)
+
+    def render_foreign_key(self, fk: ForeignKey, table_name: str) -> str:
+        cols = ", ".join(fk.columns)
+        ref_cols = ", ".join(fk.reference_columns)
+        sql = f"ALTER TABLE {table_name} ADD CONSTRAINT {fk.name} FOREIGN KEY ({cols}) REFERENCES {fk.reference_table}({ref_cols})"
+        if fk.on_delete != "NO ACTION":
+            sql += f" ON DELETE {fk.on_delete}"
+        if fk.on_update != "NO ACTION":
+            sql += f" ON UPDATE {fk.on_update}"
+        return sql + ";"
+
+    def render_index(self, index: Index) -> str:
+        unique = "UNIQUE " if index.unique else ""
+        cols = ", ".join(index.columns)
+        return f"CREATE {unique}INDEX {index.name} ON {index.table} ({cols});"
+
+    def render_check(self, check: CheckConstraint) -> str:
+        return f"ALTER TABLE {check.table} ADD CONSTRAINT {check.name} CHECK ({check.expression});"
+
+    def render_unique_constraint(self, uc: UniqueConstraint) -> str:
+        cols = ", ".join(uc.columns)
+        return f"ALTER TABLE {uc.table} ADD CONSTRAINT {uc.name} UNIQUE ({cols});"
+
+    def render_alter_column_type(self, table_name: str, column: Column) -> str:
+        type_str = self.render_column_type(column)
+        return f"ALTER TABLE {table_name} MODIFY {column.name} {type_str};"
+
+    def render_alter_column_nullability(
+        self, table_name: str, column_name: str, nullable: bool
+    ) -> str:
+        constraint = "NULL" if nullable else "NOT NULL"
+        return f"ALTER TABLE {table_name} MODIFY {column_name} {constraint};"
+
+    def render_alter_column_default(
+        self, table_name: str, column_name: str, default: str | None
+    ) -> str:
+        if default is not None:
+            return f"ALTER TABLE {table_name} MODIFY {column_name} DEFAULT {default};"
+        else:
+            return f"ALTER TABLE {table_name} MODIFY {column_name} DEFAULT NULL;"
+
+    def render_drop_foreign_key(self, fk_name: str, table_name: str) -> str:
+        return f"ALTER TABLE {table_name} DROP CONSTRAINT {fk_name};"
+
+    def render_drop_index(self, index_name: str) -> str:
+        return f"DROP INDEX {index_name};"
+
+    def render_drop_check(self, check_name: str, table_name: str) -> str:
+        return f"ALTER TABLE {table_name} DROP CONSTRAINT {check_name};"
+
+
 def get_dialect(name: str) -> Dialect:
     """Get a dialect instance by name."""
     dialects = {
@@ -472,6 +593,7 @@ def get_dialect(name: str) -> Dialect:
         "mysql": MysqlDialect,
         "mariadb": MysqlDialect,
         "sqlite": SqliteDialect,
+        "oracle": OracleDialect,
     }
     normalized = name.strip().lower()
     if normalized not in dialects:
